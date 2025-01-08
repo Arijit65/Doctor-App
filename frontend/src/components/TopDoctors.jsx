@@ -6,6 +6,12 @@ const TopDoctors = () => {
 
   const navigate = useNavigate();
   const {doctors}=useContext(AppContext)
+
+  if (!doctors) 
+    { return ( <div className="flex flex-col items-center justify-center h-auto"> 
+    <div className="loader mb-4"></div> 
+    <p className="text-xl font-medium text-gray-700">Loading doctors...</p> </div> ); 
+    }
   return (
     <div className='flex flex-col items-center gap-4 my-16 text-gray-900 md:mx-10'>
         <h1 className='text-3xl font-medium'>Top Doctors to Book</h1>
@@ -29,4 +35,4 @@ const TopDoctors = () => {
   )
 }
 
-export default TopDoctors
+export default TopDoctors;

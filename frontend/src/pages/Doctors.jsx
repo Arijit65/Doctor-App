@@ -11,6 +11,7 @@ const Doctors = () => {
      const [filter,setFilter] = useState(false)
      
     const {doctors}=useContext(AppContext)
+    console.log(doctors)
 
     const applyFilter=()=>{
       if(speciality){
@@ -25,7 +26,11 @@ useEffect(()=>{
 
 },[doctors,speciality])
 
-
+if (!doctors) 
+  { return ( <div className="flex flex-col items-center justify-center h-auto"> 
+  <div className="loader mb-4"></div> 
+  <p className="text-xl font-medium text-gray-700">Loading doctors...</p> </div> ); 
+  }
 
   return (
     <div>
@@ -62,4 +67,4 @@ useEffect(()=>{
   )
 }
 
-export default Doctors
+export default Doctors;

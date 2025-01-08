@@ -27,24 +27,24 @@ const AdminContextProvider = (props) => {
       
     }
   }
-  const changeAvailability = async (docID)=>{
-    try {
+  // const changeAvailability = async (docID)=>{
+  //   try {
       
-      const {data} = await axios.post(backendUrl + '/api/admin/change-availability',{docID},{headers:{aToken}})
-      if(data.success){
-        toast.success(data.message)
-        getAllDoctors()
-      }else{
-        toast.error(data.message)
-      }
+  //     const {data} = await axios.post(backendUrl + '/api/admin/change-availability',{docID},{headers:{aToken}})
+  //     if(data.success){
+  //       toast.success(data.message)
+  //       getAllDoctors()
+  //     }else{
+  //       toast.error(data.message)
+  //     }
 
 
-    } catch (error) {
+  //   } catch (error) {
 
-      toast.error(error.message);
+  //     toast.error(error.message);
       
-    }
-  }
+  //   }
+  // }
 
 
 
@@ -53,7 +53,8 @@ const AdminContextProvider = (props) => {
   const value = {
     aToken,
     setAToken,
-    backendUrl,doctors,getAllDoctors,changeAvailability,
+    backendUrl,doctors,getAllDoctors,
+    //changeAvailability,
   };
   return (
     <AdminContext.Provider value={value}>

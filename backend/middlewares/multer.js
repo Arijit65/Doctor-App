@@ -5,8 +5,7 @@ const storage = multer.diskStorage({
 
         callback(null,file.originalname)
 
-
-
+        
     }
 })
 
