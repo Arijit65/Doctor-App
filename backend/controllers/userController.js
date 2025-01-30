@@ -3,6 +3,12 @@ import usersModel from '../models/userModel.js';
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt';
 import {v2 as cloudinary} from 'cloudinary';
+import appointmentModel from '../models/appointmentModel.js';
+import doctorModel from '../models/doctorModel.js';
+import razorpay from 'razorpay';
+
+
+
 const registerUser = async (req, res)=>{
     try {
         const {name,email,password}=req.body;
@@ -96,6 +102,150 @@ const updateUser = async (req,res)=>{
 }
 
 
+const bookAppointment = async (req,res) => {
+
+    try {
+        const {user_id, docId, slotDate, slotTime} = req.body;
+      const docData = await doctorModel.findById(docId).select('-password');
+      if(!docData.available){
+        return res.json({success:false,message:'Doctor not available'})
+      } 
+      let slots_booked = docData.slots_booked;
+
+      // checking for slots available
+      if(slots_booked[slotDate]){
+        if(slots_booked[slotDate].includes(slotTime)){
+            return res.json({success:false,message:'Slots not available'})
+        }else{
+            slots_booked[slotDate].push(slotTime);
+        }
+      }else {
+        slots_booked[slotDate]=[]
+        slots_booked[slotDate].push(slotTime);
+      }
+      const userData = await usersModel.findById(user_id).select('-password')
+      const appointmentData = {
+        user_id,
+        docId,
+        userData,
+        docData,
+        amount:docData.fees,
+        slotTime,
+        slotDate,
+        date:Date.now()
+      }
+      const newAppointment = new appointmentModel(appointmentData);
+      await newAppointment.save();
+      await doctorModel.findByIdAndUpdate(docData,{slots_booked})
+
+      res.json({success:true, message:'Appointment booked'});
 
 
-export {registerUser,logUser,getUserData, updateUser};
+
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ success: false, message: error.message });
+    }
+      
+}
+
+// API to get user appointments for frontend my-appointments page 
+
+const listAppointment = async(req,res)=>{
+    try {
+        const {user_id}=req.body;
+        const appointments = await appointmentModel.find({user_id})
+
+        res.json({success:true,appointments})
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+const cancelAppointment = async(req,res)=>{
+    try {
+        const {user_id,appointmentId}=req.body;
+        const appointmentData = await appointmentModel.findById(appointmentId)
+        //varify appointment user 
+            if(appointmentData.user_id !== user_id) {
+                return res.json({success:false,message:'unauthorized action'})
+            }
+            await appointmentModel.findByIdAndUpdate(appointmentId,{cancelled:true})
+
+            //releasing doctor slot
+
+            const {docId, slotDate,slotTime}=appointmentData
+            const doctorData = await doctorModel.findById(docId)
+            let slots_booked = doctorData.slots_booked
+
+            slots_booked[slotDate]=slots_booked[slotDate].filter(e=> e !== slotTime)
+
+            await doctorModel.findByIdAndUpdate(docId,{slots_booked})
+            res.json({success:true, message:'Appointment Cancelled'})
+
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ success: false, message: error.message });
+        
+    }
+}
+
+const razorpayInstance = new razorpay({
+  key_id: process.env.RAZOR_PAY_KEY,
+  key_secret: process.env.RAZOR_PAY_SECRET
+})
+
+// Api to create payament gateway for appointments using razorpay
+
+const paymentRazorpay = async(req,res)=>{
+    try {
+
+        const {appointmentId} = req.body;
+        const appointmentData = await appointmentModel.findById(appointmentId)
+        if(!appointmentId || appointmentData.cancelled ){
+            return res.json({success:false,message:"Appointment canceeld or not found"})
+        }
+
+        // creating razorpay payment options
+        const options={
+            amount:appointmentData.amount*100,
+            currency: 'INR',
+            receipt: appointmentId,
+        }
+
+        // creating razorpay payment
+        const order = await razorpayInstance.orders.create(options);
+        res.json({success:true,order})
+
+        
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+
+// Api to verify payment of razorpay
+
+const verifyRazorpay = async (req,res)=>{
+    try {
+        const {razorpay_order_id} = req.body
+        const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
+
+        if(orderInfo.status === 'paid'){
+            await appointmentModel.findByIdAndUpdate(orderInfo.receipt,{payment:true})
+            res.json({success:true,message:"payment successful"})
+        }else{
+            res.json({success:false,message:"payment failed"})
+        }
+        
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ success: false, message: error.message });
+        
+    }
+}
+
+
+export {registerUser,logUser,getUserData, updateUser, bookAppointment,listAppointment,cancelAppointment,paymentRazorpay,verifyRazorpay};
